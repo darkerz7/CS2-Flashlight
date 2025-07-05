@@ -10,3 +10,9 @@ Flashlight for Counter-Strike 2
 
 ## Installation:
 Compile or copy Flashlight to `counterstrikesharp/plugins/Flashlight` folger
+
+## Commands:
+Client Command | Description
+--- | ---
+`css_fl_color [R G B]` | Allows the player to change the color of the flashlight (default: 255 255 255; min 0; max 255)
+`css_fl_rainbow` | Toggle the flashlight glow mode to rainbow
