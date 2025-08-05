@@ -6,7 +6,7 @@ Flashlight for Counter-Strike 2
 2. Transmit from other players
 
 ## Required packages:
-[CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/) (Min version: 285)
+[CounterStrikeSharp](https://github.com/roflmuffin/CounterStrikeSharp/) (Min version: 330)
 
 ## Installation:
 Compile or copy Flashlight to `counterstrikesharp/plugins/Flashlight` folger

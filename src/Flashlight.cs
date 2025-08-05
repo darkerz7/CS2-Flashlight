@@ -3,22 +3,23 @@ using CounterStrikeSharp.API.Core;
 using CounterStrikeSharp.API.Core.Attributes;
 using CounterStrikeSharp.API.Core.Attributes.Registration;
 using CounterStrikeSharp.API.Modules.Commands;
-using CounterStrikeSharp.API.Modules.Memory;
+using CounterStrikeSharp.API.Modules.Timers;
 using CounterStrikeSharp.API.Modules.Utils;
 using static CounterStrikeSharp.API.Core.Listeners;
 
 namespace Flashlight
 {
-	[MinimumApiVersion(285)]
+	[MinimumApiVersion(330)]
 	public class Flashlight : BasePlugin
 	{
 		public override string ModuleName => "Flashlight";
 		public override string ModuleDescription => "Flashlight for Counter-Strike 2";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.1";
+		public override string ModuleVersion => "1.DZ.2";
 
 		static PlayerFlashlight[] g_PF = new PlayerFlashlight[65];
 		static float g_fRainbowProgess = 0.0f;
+		static CounterStrikeSharp.API.Modules.Timers.Timer? g_Timer = new(0.1f, OnTimerRainbow, TimerFlags.REPEAT);
 
 		public override void Load(bool hotReload)
 		{
@@ -27,8 +28,8 @@ namespace Flashlight
 			RegisterEventHandler<EventPlayerConnectFull>(OnEventPlayerConnectFull);
 			RegisterEventHandler<EventPlayerDisconnect>(OnEventPlayerDisconnect);
 			RegisterEventHandler<EventPlayerSpawn>(OnEventPlayerSpawn);
-			RegisterListener<OnTick>(OnOnTick_Listener);
 			RegisterListener<CheckTransmit>(OnCheckTransmit_Listener);
+			RegisterListener<OnPlayerButtonsChanged>(OnOnPlayerButtonsChanged_Listener);
 
 			if (hotReload)
 			{
@@ -42,8 +43,13 @@ namespace Flashlight
 
 		public override void Unload(bool hotReload)
 		{
-			RemoveListener<OnTick>(OnOnTick_Listener);
+			if (g_Timer != null)
+			{
+				g_Timer.Kill();
+				g_Timer = null;
+			}
 			RemoveListener<CheckTransmit>(OnCheckTransmit_Listener);
+			RemoveListener<OnPlayerButtonsChanged>(OnOnPlayerButtonsChanged_Listener);
 			DeregisterEventHandler<EventPlayerDeath>(OnEventPlayerDeath);
 			DeregisterEventHandler<EventPlayerConnectFull>(OnEventPlayerConnectFull);
 			DeregisterEventHandler<EventPlayerDisconnect>(OnEventPlayerDisconnect);
@@ -55,21 +61,28 @@ namespace Flashlight
 			});
 		}
 
-		private void OnOnTick_Listener()
+		private void OnOnPlayerButtonsChanged_Listener(CCSPlayerController player, PlayerButtons pressed, PlayerButtons released)
 		{
-			g_fRainbowProgess += 0.001f;
-			if (g_fRainbowProgess >= 1.0f) g_fRainbowProgess = 0.0f;
-			System.Drawing.Color RainBowColor = Rainbow(g_fRainbowProgess);
-			Utilities.GetPlayers().Where(p => p is { IsValid: true, IsBot: false, IsHLTV: false }).ToList().ForEach(player =>
+			//Console.WriteLine($"[Debug:Buttons] Player: {player.PlayerName} Presed: {(long)pressed} Released: {(long)released}");
+			if (player != null && player.IsValid)
 			{
-				if (g_PF[player.Slot].CanToggle && !g_PF[player.Slot].NotSpam && (player.Buttons & (PlayerButtons)34359738368) != 0)
+				if (g_PF[player.Slot].CanToggle && !g_PF[player.Slot].NotSpam && (pressed & (PlayerButtons)34359738368) != 0)
 				{
 					g_PF[player.Slot].NotSpam = true;
 					if (g_PF[player.Slot].HasFlashlight()) g_PF[player.Slot].RemoveFlashlight();
 					else g_PF[player.Slot].SpawnFlashlight();
 					_ = new CounterStrikeSharp.API.Modules.Timers.Timer(0.5f, () => { g_PF[player.Slot].NotSpam = false; });
 				}
-				g_PF[player.Slot].IsCrouch = (player.Buttons & PlayerButtons.Duck) != 0;
+			}
+		}
+
+		private static void OnTimerRainbow()
+		{
+			g_fRainbowProgess += 0.005f;
+			if (g_fRainbowProgess >= 1.0f) g_fRainbowProgess = 0.0f;
+			System.Drawing.Color RainBowColor = Rainbow(g_fRainbowProgess);
+			Utilities.GetPlayers().Where(p => p is { IsValid: true, IsBot: false, IsHLTV: false }).ToList().ForEach(player =>
+			{
 				if (g_PF[player.Slot].Rainbow)
 				{
 #nullable enable
@@ -86,15 +99,19 @@ namespace Flashlight
 
 		private void OnCheckTransmit_Listener(CCheckTransmitInfoList infoList)
 		{
+#nullable enable
 			foreach ((CCheckTransmitInfo info, CCSPlayerController? player) in infoList)
+#nullable disable
 			{
 				if (player == null || !player.IsValid) continue;
 				Utilities.GetPlayers().Where(p => p is { IsValid: true, IsBot: false, IsHLTV: false }).ToList().ForEach(pl =>
 				{
 					if(pl != player)
 					{
+#nullable enable
 						COmniLight? FL = g_PF[pl.Slot].GetFlashLight();
-						if(FL != null) info.TransmitEntities.Remove(FL);
+#nullable disable
+						if (FL != null) info.TransmitEntities.Remove(FL);
 					}
 				});
 			}
@@ -128,7 +145,6 @@ namespace Flashlight
 			var player = @event.Userid;
 			if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
 
-			g_PF[player.Slot].IsCrouch = false;
 			g_PF[player.Slot].CanToggle = true;
 
 			return HookResult.Continue;
@@ -140,7 +156,6 @@ namespace Flashlight
 			var player = @event.Userid;
 			if (player == null || !player.IsValid || player.IsBot) return HookResult.Continue;
 
-			g_PF[player.Slot].IsCrouch = false;
 			g_PF[player.Slot].CanToggle = false;
 
 			g_PF[player.Slot].RemoveFlashlight();
@@ -204,12 +219,9 @@ namespace Flashlight
 		{
 #nullable enable
 			CCSPlayerController? Player = null;
-			CHandle<CCSGOViewModel>? ViewModel = null;
 			COmniLight? Flashlight_Ent = null;
 #nullable disable
-			CounterStrikeSharp.API.Modules.Utils.Vector Origin = new();
 			public System.Drawing.Color ColorFL = System.Drawing.Color.White;
-			public bool IsCrouch = false;
 			public bool CanToggle = false;
 			public bool NotSpam = false;
 			public bool Rainbow = false;
@@ -217,38 +229,21 @@ namespace Flashlight
 			public void SetPlayer(CCSPlayerController? player)
 #nullable disable
 			{
-				IsCrouch = false;
 				CanToggle = false;
 				NotSpam = false;
 				Rainbow = false;
 
 				RemoveFlashlight();
 				Player = player;
-				CreateViewModel();
 			}
 			public void RemovePlayer()
 			{
-				IsCrouch = false;
 				CanToggle = false;
 				NotSpam = false;
 				Rainbow = false;
 
 				RemoveFlashlight();
-				ViewModel = null;
 				Player = null;
-			}
-			void CreateViewModel()
-			{
-				if (Player == null || !Player.IsValid) return;
-				CCSPlayerPawn pawn = Player.PlayerPawn.Value!;
-				var handle = new CHandle<CCSGOViewModel>((IntPtr)(pawn.ViewModelServices!.Handle + Schema.GetSchemaOffset("CCSPlayer_ViewModelServices", "m_hViewModel") + 4));
-				if (!handle.IsValid)
-				{
-					CCSGOViewModel viewmodel = Utilities.CreateEntityByName<CCSGOViewModel>("predicted_viewmodel")!;
-					handle.Raw = viewmodel.EntityHandle.Raw;
-					Utilities.SetStateChanged(pawn, "CCSPlayerPawnBase", "m_pViewModelServices");
-				}
-				ViewModel = handle;
 			}
 			public void RemoveFlashlight()
 			{
@@ -270,17 +265,13 @@ namespace Flashlight
 					entity.Brightness = 1f;
 					entity.Range = 5000f;
 
-					Origin.X = Player.PlayerPawn.Value!.AbsOrigin!.X;
-					Origin.Y = Player.PlayerPawn.Value!.AbsOrigin!.Y;
-					Origin.Z = Player.PlayerPawn.Value!.AbsOrigin!.Z + (IsCrouch ? 46.03f : 64.03f);
-					entity.Teleport(Origin, Player.PlayerPawn.Value!.EyeAngles, Player.PlayerPawn.Value!.AbsVelocity);
+					System.Numerics.Vector3 vecOrigin = (System.Numerics.Vector3)Player.PlayerPawn.Value!.AbsOrigin! with { Z = Player.PlayerPawn.Value!.AbsOrigin!.Z + Player.PlayerPawn.Value!.ViewOffset.Z + 0.03f };
+					entity.Teleport(vecOrigin, (System.Numerics.Vector3)Player.PlayerPawn.Value!.EyeAngles, (System.Numerics.Vector3)Player.PlayerPawn.Value!.AbsVelocity);
 
 					entity.DispatchSpawn();
 
-					if (ViewModel != null && ViewModel.IsValid)
-						entity.AcceptInput("SetParent", ViewModel.Value, null, "!activator");
-					else
-						entity.AcceptInput("SetParent", Player.Pawn.Value, null, "!activator");
+					entity.AcceptInput("SetParent", Player.Pawn.Value, null, "!activator");
+					entity.AcceptInput("SetParentAttachmentMaintainOffset", Player.Pawn.Value, null, "axis_of_intent");
 
 					Flashlight_Ent = entity;
 				}
@@ -304,21 +295,15 @@ namespace Flashlight
 			int ascending = (int)((div % 1) * 255);
 			int descending = 255 - ascending;
 
-			switch ((int)div)
+			return (int)div switch
 			{
-				case 0:
-					return System.Drawing.Color.FromArgb(255, 255, ascending, 0);
-				case 1:
-					return System.Drawing.Color.FromArgb(255, descending, 255, 0);
-				case 2:
-					return System.Drawing.Color.FromArgb(255, 0, 255, ascending);
-				case 3:
-					return System.Drawing.Color.FromArgb(255, 0, descending, 255);
-				case 4:
-					return System.Drawing.Color.FromArgb(255, ascending, 0, 255);
-				default: // case 5:
-					return System.Drawing.Color.FromArgb(255, 255, 0, descending);
-			}
+				0 => System.Drawing.Color.FromArgb(255, 255, ascending, 0),
+				1 => System.Drawing.Color.FromArgb(255, descending, 255, 0),
+				2 => System.Drawing.Color.FromArgb(255, 0, 255, ascending),
+				3 => System.Drawing.Color.FromArgb(255, 0, descending, 255),
+				4 => System.Drawing.Color.FromArgb(255, ascending, 0, 255),
+				_ => System.Drawing.Color.FromArgb(255, 255, 0, descending),
+			};
 		}
 	}
 }
