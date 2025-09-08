@@ -15,7 +15,7 @@ namespace Flashlight
 		public override string ModuleName => "Flashlight";
 		public override string ModuleDescription => "Flashlight for Counter-Strike 2";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.2";
+		public override string ModuleVersion => "1.DZ.2.1";
 
 		static PlayerFlashlight[] g_PF = new PlayerFlashlight[65];
 		static float g_fRainbowProgess = 0.0f;
@@ -266,7 +266,7 @@ namespace Flashlight
 					entity.Range = 5000f;
 
 					System.Numerics.Vector3 vecOrigin = (System.Numerics.Vector3)Player.PlayerPawn.Value!.AbsOrigin! with { Z = Player.PlayerPawn.Value!.AbsOrigin!.Z + Player.PlayerPawn.Value!.ViewOffset.Z + 0.03f };
-					entity.Teleport(vecOrigin, (System.Numerics.Vector3)Player.PlayerPawn.Value!.EyeAngles, (System.Numerics.Vector3)Player.PlayerPawn.Value!.AbsVelocity);
+					entity.Teleport(vecOrigin, (System.Numerics.Vector3)Player.PlayerPawn.Value!.V_angle, (System.Numerics.Vector3)Player.PlayerPawn.Value!.AbsVelocity);
 
 					entity.DispatchSpawn();
 
