@@ -9,13 +9,13 @@ using static CounterStrikeSharp.API.Core.Listeners;
 
 namespace Flashlight
 {
-	[MinimumApiVersion(330)]
+	[MinimumApiVersion(369)]
 	public class Flashlight : BasePlugin
 	{
 		public override string ModuleName => "Flashlight";
 		public override string ModuleDescription => "Flashlight for Counter-Strike 2";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.2.1";
+		public override string ModuleVersion => "1.DZ.3";
 
 		static PlayerFlashlight[] g_PF = new PlayerFlashlight[65];
 		static float g_fRainbowProgess = 0.0f;
