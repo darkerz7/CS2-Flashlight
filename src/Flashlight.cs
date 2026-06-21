@@ -15,7 +15,7 @@ namespace Flashlight
 		public override string ModuleName => "Flashlight";
 		public override string ModuleDescription => "Flashlight for Counter-Strike 2";
 		public override string ModuleAuthor => "DarkerZ [RUS]";
-		public override string ModuleVersion => "1.DZ.3";
+		public override string ModuleVersion => "1.DZ.4";
 
 		static PlayerFlashlight[] g_PF = new PlayerFlashlight[65];
 		static float g_fRainbowProgess = 0.0f;
@@ -258,20 +258,23 @@ namespace Flashlight
 				if (entity != null && entity.IsValid)
 				{
 					entity.DirectLight = 3;
-					entity.OuterAngle = 45f;
+					entity.OuterAngle = 55f;
 					entity.Enabled = true;
 					entity.Color = ColorFL;
 					entity.ColorTemperature = 6500;
-					entity.Brightness = 1f;
+					entity.Brightness = 2.5f;
 					entity.Range = 5000f;
 
-					System.Numerics.Vector3 vecOrigin = (System.Numerics.Vector3)Player.PlayerPawn.Value!.AbsOrigin! with { Z = Player.PlayerPawn.Value!.AbsOrigin!.Z + Player.PlayerPawn.Value!.ViewOffset.Z + 0.03f };
-					entity.Teleport(vecOrigin, (System.Numerics.Vector3)Player.PlayerPawn.Value!.V_angle, (System.Numerics.Vector3)Player.PlayerPawn.Value!.AbsVelocity);
+                    System.Numerics.Vector3 vecOrigin = (System.Numerics.Vector3)Player.PlayerPawn.Value!.AbsOrigin! with { Z = Player.PlayerPawn.Value!.AbsOrigin!.Z + Player.PlayerPawn.Value!.ViewOffset.Z + 0.03f };
+                    System.Numerics.Vector3 vecAngle = (System.Numerics.Vector3)Player.PlayerPawn.Value!.EyeAngles;
+                    AngleVectors(vecAngle, out System.Numerics.Vector3 vecForward);
+                    vecOrigin += vecForward * 54.0f;
+                    entity.Teleport(vecOrigin, vecAngle, (System.Numerics.Vector3)Player.PlayerPawn.Value!.AbsVelocity);
 
-					entity.DispatchSpawn();
+                    entity.DispatchSpawn();
 
 					entity.AcceptInput("SetParent", Player.Pawn.Value, null, "!activator");
-					entity.AcceptInput("SetParentAttachmentMaintainOffset", Player.Pawn.Value, null, "axis_of_intent");
+					entity.AcceptInput("SetParentAttachmentMaintainOffset", Player.Pawn.Value, null, "clip_limit");
 
 					Flashlight_Ent = entity;
 				}
@@ -305,5 +308,14 @@ namespace Flashlight
 				_ => System.Drawing.Color.FromArgb(255, 255, 0, descending),
 			};
 		}
-	}
+
+		private static void AngleVectors(System.Numerics.Vector3 angles, out System.Numerics.Vector3 forward)
+		{
+            (float sy, float cy) = MathF.SinCos(angles.Y * MathF.PI / 180.0f);
+            (float sp, float cp) = MathF.SinCos(angles.X * MathF.PI / 180.0f);
+
+            forward = new(cp * cy, cp * sy, -sp);
+        }
+
+    }
 }
